@@ -1,39 +1,47 @@
 import os
 import base64
-import io
+import numpy as np
+import cv2
 from flask import Flask, request
-from PIL import Image
 import pytesseract
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Color-Isolated Beast Solver is Online!"
+    return "OpenCV Beast Solver is Online!"
 
 @app.route('/solve', methods=['POST'])
 def solve():
     try:
         data = request.get_json()
         img_bytes = base64.b64decode(data['image'])
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
         
-        # --- Advanced Color Isolation (The Fix) ---
-        # Nayi white image banana
-        clean_img = Image.new("L", img.size, 255)
-        pixels = img.load()
-        clean_pixels = clean_img.load()
+        # Image ko OpenCV format mein load karna
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # --- Advanced Color Filtering ---
+        # Sirf ekdam dark (black) pixels ko pakdenge (Threshold < 100)
+        # Isse colored circles (blue/red/green) white background mein mil jayenge
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, binary = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
+        
+        # Cleanup: Thoda noise aur hatane ke liye
+        kernel = np.ones((2,2), np.uint8)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+        
+        # Tesseract logic
+        config = r'--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        result = pytesseract.image_to_string(binary, config=config).strip()
+        
+        return str(result)
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
-        for y in range(img.size[1]):
-            for x in range(img.size[0]):
-                r, g, b, a = pixels[x, y]
-                # Agar pixel kaafi gehra (blackish) hai toh usey rakho
-                # Letters black hain, toh R,G,B teeno kam honge (e.g. < 90)
-                if r < 100 and g < 100 and b < 100:
-                    clean_pixels[x, y] = 0 # Black pixel
-                else:
-                    clean_pixels[x, y] = 255 # White background (colored arcs gayab)
-
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
         # Accuracy badhane ke liye image ko 2x bada karna
         clean_img = clean_img.resize((img.size[0]*2, img.size[1]*2), Image.Resampling.LANCZOS)
         
