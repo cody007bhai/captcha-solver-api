@@ -2,38 +2,54 @@ import os
 import base64
 import io
 from flask import Flask, request
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image
 import pytesseract
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Super-Sharp Solver is Online!"
+    return "Color-Isolated Beast Solver is Online!"
 
 @app.route('/solve', methods=['POST'])
 def solve():
     try:
         data = request.get_json()
         img_bytes = base64.b64decode(data['image'])
-        img = Image.open(io.BytesIO(img_bytes))
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
         
-        # --- Super Preprocessing ---
-        # 1. Image ko 2 guna bada karna (OCR scaling se accuracy badhti hai)
-        width, height = img.size
-        img = img.resize((width*2, height*2), Image.Resampling.LANCZOS)
+        # --- Advanced Color Isolation (The Fix) ---
+        # Nayi white image banana
+        clean_img = Image.new("L", img.size, 255)
+        pixels = img.load()
+        clean_pixels = clean_img.load()
+
+        for y in range(img.size[1]):
+            for x in range(img.size[0]):
+                r, g, b, a = pixels[x, y]
+                # Agar pixel kaafi gehra (blackish) hai toh usey rakho
+                # Letters black hain, toh R,G,B teeno kam honge (e.g. < 90)
+                if r < 100 and g < 100 and b < 100:
+                    clean_pixels[x, y] = 0 # Black pixel
+                else:
+                    clean_pixels[x, y] = 255 # White background (colored arcs gayab)
+
+        # Accuracy badhane ke liye image ko 2x bada karna
+        clean_img = clean_img.resize((img.size[0]*2, img.size[1]*2), Image.Resampling.LANCZOS)
         
-        # 2. Grayscale aur Contrast badhana
-        img = img.convert('L') 
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(2.0) # Contrast double
-        
-        # 3. Clean Binarization (Otsu-style threshold)
-        # Isse saare colored arcs white ho jayenge aur sirf black letters bachenge
-        img = img.point(lambda p: p > 140 and 255)
-        
-        # Tesseract Config: Sirf Alpha-Numeric Whitelist
+        # Tesseract configuration
         custom_config = r'--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        
+        result = pytesseract.image_to_string(clean_img, config=custom_config).strip()
+        
+        return str(result)
+        
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
         
         result = pytesseract.image_to_string(img, config=custom_config).strip()
         
