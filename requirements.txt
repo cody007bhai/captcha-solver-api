@@ -1,3 +1,5 @@
 flask
-​ddddocr
-​gunicorn
+ddddocr
+gunicorn
+opencv-python-headless
+
