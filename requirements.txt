@@ -1,5 +1,5 @@
-opencv-python-headless
 flask
 gunicorn
-ddddocr==1.4.7
+pytesseract
 Pillow
+
