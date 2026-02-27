@@ -1,34 +1,33 @@
 import os
 from flask import Flask, request
 import base64
-import ddddocr # Pehle hi import kar liya
+from PIL import Image
+import io
+import pytesseract
 
 app = Flask(__name__)
-# Global init taaki har request pe load na ho (Memory bachegi)
-ocr = ddddocr.DdddOcr(show_ad=False)
 
 @app.route('/')
 def home():
-    return "Beast Solver is Online!"
+    return "Lite Solver is Online!"
 
 @app.route('/solve', methods=['POST'])
 def solve():
     try:
         data = request.json
         img_64 = data.get('image')
-        if not img_64: return "No Image", 400
-        
         img_bytes = base64.b64decode(img_64)
-        # Solve logic
-        res = ocr.classification(img_bytes)
-        return str(res)
+        
+        # Image ko PIL mein convert karna
+        img = Image.open(io.BytesIO(img_bytes))
+        
+        # Tesseract se text nikalna (Simple & Fast)
+        result = pytesseract.image_to_string(img, config='--psm 6').strip()
+        
+        return str(result)
     except Exception as e:
-        return f"Error: {str(e)}", 500 # Server crash hone par error message bhejega
+        return f"Error: {str(e)}", 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
