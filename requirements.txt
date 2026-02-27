@@ -1,7 +1,5 @@
 opencv-python-headless
 flask
 gunicorn
-ddddocr
+ddddocr==1.4.7
 Pillow
-
-
